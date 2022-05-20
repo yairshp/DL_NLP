@@ -39,9 +39,9 @@ def generate_single_sequence(is_pos):
 
 
 def generate_sequences(is_pos, num_of_sequences):
-    sequences = []
+    sequences = set()
     for i in range(num_of_sequences):
-        sequences.append(generate_single_sequence(is_pos))
+        sequences.add(generate_single_sequence(is_pos))
     return sequences
 
 
