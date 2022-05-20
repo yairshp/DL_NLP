@@ -1,0 +1,6 @@
+1.  I got slightly better accuracies using the MLP. When training MLP, I got about 85%, while the log-linear model got about 83%.
+
+2.  I got 66% when training with the log-linear model and 70% when training with the MLP.
+
+3.  The MLP can learn the XOR function, and it took about 150 iterations to do it.
+    The log-linear could not converge even after 2000 iterations.
