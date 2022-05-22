@@ -1,6 +1,6 @@
 import random
 
-MAX_NUM_OF_REPEATS = 50
+MAX_NUM_OF_REPEATS = 10
 NUM_OF_EXAMPLES = 500
 A = 'a'
 B = 'b'
@@ -13,7 +13,7 @@ def pick_num_of_repeats():
 
 
 def pick_random_digit():
-    return random.randrange(0, 9)
+    return random.randrange(1, 9)
 
 
 def generate_single_digit_section():
@@ -45,10 +45,21 @@ def generate_sequences(is_pos, num_of_sequences):
     return sequences
 
 
+def write_examples_to_file(file_name, examples):
+    with open(file_name, 'w') as output_file:
+        for example in examples:
+            output_file.write(f'{example}\n')
+
+
 def main():
-    positive_sequences = generate_sequences(True, NUM_OF_EXAMPLES)
-    negative_sequences = generate_sequences(False, NUM_OF_EXAMPLES)
-    pass
+    positive_train_sequences = generate_sequences(True, NUM_OF_EXAMPLES)
+    negative_train_sequences = generate_sequences(False, NUM_OF_EXAMPLES)
+    positive_test_sequences = generate_sequences(True, 100)
+    negative_test_sequences = generate_sequences(False, 100)
+    write_examples_to_file('data/pos_train', positive_train_sequences)
+    write_examples_to_file('data/neg_train', negative_train_sequences)
+    write_examples_to_file('data/pos_dev', positive_test_sequences)
+    write_examples_to_file('data/neg_dev', negative_test_sequences)
 
 
 if __name__ == '__main__':
