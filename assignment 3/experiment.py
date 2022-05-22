@@ -123,8 +123,8 @@ def get_raw_data(input_file_name):
 
 def prepare_data():
     # train data
-    raw_positive_data = get_raw_data('data/pos_train')
-    raw_negative_data = get_raw_data('data/neg_train')
+    raw_positive_data = get_raw_data('data/pos_examples')
+    raw_negative_data = get_raw_data('data/neg_examples')
 
     labeled_positive_data = add_label(raw_positive_data, is_pos=True)
     labeled_negative_data = add_label(raw_negative_data, is_pos=False)

@@ -56,8 +56,8 @@ def main():
     negative_train_sequences = generate_sequences(False, NUM_OF_EXAMPLES)
     positive_test_sequences = generate_sequences(True, 100)
     negative_test_sequences = generate_sequences(False, 100)
-    write_examples_to_file('data/pos_train', positive_train_sequences)
-    write_examples_to_file('data/neg_train', negative_train_sequences)
+    write_examples_to_file('data/pos_examples', positive_train_sequences)
+    write_examples_to_file('data/neg_examples', negative_train_sequences)
     write_examples_to_file('data/pos_dev', positive_test_sequences)
     write_examples_to_file('data/neg_dev', negative_test_sequences)
 
