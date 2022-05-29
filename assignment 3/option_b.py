@@ -5,12 +5,13 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import utils
 
-EMBEDDING_DIM = 200
-HIDDEN_STATE_DIM_1 = 300
-HIDDEN_STATE_DIM_2 = 500
-HIDDEN_LAYER_DIM = 2000
+CHARS_EMBEDDING_DIM = 15
+CHARS_HIDDEN_DIM = 50
+WORDS_HIDDEN_DIM_1 = 50
+WORDS_HIDDEN_DIM_2 = 100
+HIDDEN_LAYER_DIM = 200
 EPOCHS = 20
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.01
 MAX_WORD_LEN = 30
 
 
@@ -134,16 +135,83 @@ class WordsLstm(nn.Module):
             hidden_states.append(hidden_state)
         return torch.stack(hidden_states)
 
+
+class Tagger(nn.Module):
+    def __init__(self, tags):
+        super(Tagger, self).__init__()
+
+        self.tags = tags
+
+        self.chars_lstm = CharsLstm(CHARS_EMBEDDING_DIM, CHARS_HIDDEN_DIM, len(utils.CHARS))
+        self.forward_lstm_1 = WordsLstm(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=True)
+        self.backward_lstm_1 = WordsLstm(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
+        self.forward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=True)
+        self.backward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=False)
+        self.linear_1 = nn.Linear(2 * WORDS_HIDDEN_DIM_2, HIDDEN_LAYER_DIM)
+        self.tanh = nn.Tanh()
+        self.linear_2 = nn.Linear(HIDDEN_LAYER_DIM, len(self.tags))
+
+    def forward(self, x):
+        word_embedding = self.chars_lstm(x)
+        forward_1_output = self.forward_lstm_1(word_embedding)
+        backward_1_output = self.backward_lstm_1(word_embedding)
+        layer_1_output = torch.cat((forward_1_output, backward_1_output), dim=2)
+
+        forward_2_output = self.forward_lstm_2(layer_1_output)
+        backward_2_output = self.backward_lstm_2(layer_1_output)
+        layer_2_output = torch.cat((forward_2_output, backward_2_output), dim=2)
+
+        out = self.linear_1(layer_2_output)
+        out = self.tanh(out)
+        # out = nn.Dropout()(out)
+        out = self.linear_2(out)
+
+        return out
+
+
+def train(train_dataloader, tags, dev_dataloader=None):
+    model = Tagger(tags)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    for epoch in range(EPOCHS):
+        epoch_loss = 0
+        for x, y in train_dataloader:
+            outputs = model(x)
+            loss = criterion(outputs[:, 0, :], y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss
+        accuracy = validate(model, dev_dataloader)
+        # accuracy = 0
+        print(f'epoch {epoch + 1}: loss - {epoch_loss / len(train_dataloader)}, accuracy - {accuracy}')
+
+
+def validate(model, dev_dataloader):
+    with torch.no_grad():
+        correct = 0
+        samples = 0
+
+        for x, y in dev_dataloader:
+            outputs = model(x)
+            _, predictions = torch.max(outputs, 2)
+            for y_i, p_i in zip(y, predictions):
+                if y_i[p_i.item()].item() != 0:
+                    correct += 1
+                samples += 1
+
+        return correct / samples
+
+
 def main():
     corpus = utils.create_corpus(utils.POS_TRAIN_PATH)
     train_data = OptionBDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS, is_train=True, corpus=corpus)
-    train_dataloader = DataLoader(train_data, batch_size=None, shuffle=False)
-    model = CharsLstm(15, 50, len(utils.CHARS))
-    model2 = WordsLstm(50, 100)
-    for x, y in train_dataloader:
-        output = model(x)
-        output = model2(output)
-    pass
+    train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    dev_data = OptionBDataset(utils.POS_DEV_PATH, utils.POS_TAGS, is_train=True, corpus=corpus)
+    dev_dataloader = DataLoader(dev_data, batch_size=None, shuffle=False)
+    train(train_dataloader, utils.POS_TAGS, dev_dataloader)
 
 
 if __name__ == '__main__':
