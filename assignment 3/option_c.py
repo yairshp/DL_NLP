@@ -80,13 +80,51 @@ class Lstm(nn.Module):
 
         if self.is_embedding_layer:
             self.words_embeddings_layer = nn.Embedding.from_pretrained(embeddings_matrix)
+            self.prefix_embeddings = nn.Embedding(num_of_prefixes, input_dim)
+            self.suffix_embeddings = nn.Embedding(num_of_suffixes, input_dim)
+
+        self.lstm_cell = nn.LSTMCell(self.input_dim, self.hidden_state_dim)
+
+    def forward(self, x):
+        sequence_len = len(x) if self.is_embedding_layer else x.size(0)
+
+        hidden_state = torch.zeros(1, self.hidden_state_dim)
+        cell_state = torch.zeros(1, self.hidden_state_dim)
+        torch.nn.init.xavier_normal_(hidden_state)
+        torch.nn.init.xavier_normal_(cell_state)
+
+        out = x
+
+        if self.is_embedding_layer:
+            lstm_input = []
+            for w in out:
+                word_embedding = self.words_embeddings_layer(w[1])
+                prefix_embedding = self.prefix_embeddings(w[0])
+                suffix_embedding = self.suffix_embeddings(w[2])
+                w = torch.add(word_embedding, prefix_embedding)
+                w = torch.add(w, suffix_embedding)
+                lstm_input.append(w)
+            out = torch.stack(lstm_input)
+
+        iterating_range = range(sequence_len) if self.is_forward else range(sequence_len - 1, -1, -1)
+        hidden_states = []
+        for i in iterating_range:
+            hidden_state, cell_state = self.lstm_cell(out[i], (hidden_state, cell_state))
+            hidden_states.append(hidden_state)
+        return torch.stack(hidden_states)
 
 
 def main():
     corpus, prefixes, suffixes = utils.create_corpus_with_subwords(f'{utils.EMBEDDING_PATH}/vocab.txt')
+    embedding_matrix = utils.create_embedding_matrix(f'{utils.EMBEDDING_PATH}/wordVectors.txt')
     train_dataset = OptionCDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS,
                                    is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
-    train_dataloader = DataLoader(train_dataset, batch_size=None, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=None, shuffle=False)
+    model = Lstm(50, 60, num_of_prefixes=len(prefixes)+1, num_of_suffixes=len(suffixes)+1,
+                 embeddings_matrix=embedding_matrix)
+    for x, y in train_dataloader:
+        outputs = model(x)
+        pass
 
 
 if __name__ == '__main__':

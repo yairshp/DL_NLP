@@ -71,10 +71,10 @@ def create_corpus_with_subwords(vocab_path):
         if suffix not in suffixes:
             suffixes[suffix] = suffix_counter
             suffix_counter += 1
-    corpus[UNKNOWN] = words_counter
+    # corpus[UNKNOWN] = words_counter
     return corpus, prefixes, suffixes
 
 
 def create_embedding_matrix(vectors_path):
-    vectors = np.loadtxt(vectors_path)
+    vectors = np.loadtxt('/home/yair/Documents/University/Deep Learning for NLP/assignment 3/embeddings/wordVectors.txt')
     return torch.stack([torch.tensor(v) for v in vectors])

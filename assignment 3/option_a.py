@@ -114,9 +114,9 @@ class Tagger(nn.Module):
         self.forward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, corpus_size, is_embedding_layer=False)
         self.backward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, corpus_size,
                                     is_forward=False, is_embedding_layer=False)
-        self.linear_1 = nn.Linear(2 * HIDDEN_STATE_DIM_2, HIDDEN_LAYER_DIM)
-        self.tanh = nn.Tanh()
-        self.linear_2 = nn.Linear(HIDDEN_LAYER_DIM, len(tags))
+        # self.linear_1 = nn.Linear(2 * HIDDEN_STATE_DIM_2, HIDDEN_LAYER_DIM)
+        # self.tanh = nn.Tanh()
+        self.linear = nn.Linear(2 * HIDDEN_STATE_DIM_2, len(tags))
 
     def forward(self, x):
         forward_1_output = self.forward_lstm_1(x)
@@ -127,10 +127,7 @@ class Tagger(nn.Module):
         backward_2_output = self.backward_lstm_2(layer_1_output)
         layer_2_output = torch.cat((forward_2_output, backward_2_output), dim=2)
 
-        out = self.linear_1(layer_2_output)
-        out = self.tanh(out)
-        # out = nn.Dropout()(out)
-        out = self.linear_2(out)
+        out = self.linear(layer_2_output)
 
         return out
 
