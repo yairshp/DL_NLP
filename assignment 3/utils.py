@@ -2,15 +2,20 @@ import numpy as np
 import pandas as pd
 import torch
 
-POS_DEBUG_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/big_debug_50000'
+POS_DEBUG_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/big_debug'
 POS_TRAIN_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/train'
 POS_DEV_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/dev'
 POS_TEST_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/test'
+NER_DEBUG_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/ner/debug'
+NER_TRAIN_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/ner/train'
+NER_DEV_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/ner/dev'
+NER_TEST_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/ner/test'
 EMBEDDING_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/embeddings'
 UNKNOWN = 'UUUNKKK'
 POS_TAGS = ['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD', 'NN', 'NNS', 'NNP', 'NNPS',
             'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'SYM', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP',
             'VBZ', 'WDT', 'WP', 'WP$', 'WRB', '``', ',', '.', '\'\'', '(', ')', ':', '$', '#']
+NER_TAGS = ['PER', 'LOC', 'ORG', 'TIME', 'O', 'MISC']
 CHARS = ['(', ';', 'z', 'k', 'T', '5', '}', '?', '2', 'r', 'a', 'y', 'D', 's', 'G', ')', '4', '&', 'v', '8', 'K',
          'o', 'L', 'x', 'q', '`', 'm', 'g', '#', '9', '=', 'N', 'e', '1', 'P', 'I', 'd', '{', ',', '*', 'A', 'n', "'",
          'Q', 'w', 'F', 'Z', '!', 'S', 'C', 'H', 'W', '%', 'f', '/', 'c', 'i', 'E', 'U', 'M', '@', 'l', '-', '6', ':',

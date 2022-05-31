@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 import utils
 
 CHARS_EMBEDDING_DIM = 10
-CHARS_HIDDEN_DIM = 20
+CHARS_HIDDEN_DIM = 50
 WORDS_HIDDEN_DIM_1 = 30
 WORDS_HIDDEN_DIM_2 = 50
 HIDDEN_LAYER_DIM = 100
@@ -147,9 +147,9 @@ class Tagger(nn.Module):
         self.backward_lstm_1 = WordsLstm(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
         self.forward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=True)
         self.backward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=False)
-        self.linear_1 = nn.Linear(2 * WORDS_HIDDEN_DIM_2, HIDDEN_LAYER_DIM)
-        self.tanh = nn.Tanh()
-        self.linear_2 = nn.Linear(HIDDEN_LAYER_DIM, len(self.tags))
+        # self.linear_1 = nn.Linear(2 * WORDS_HIDDEN_DIM_2, HIDDEN_LAYER_DIM)
+        # self.tanh = nn.Tanh()
+        self.linear = nn.Linear(2 * WORDS_HIDDEN_DIM_2, len(self.tags))
 
     def forward(self, x):
         word_embedding = self.chars_lstm(x)
@@ -161,10 +161,10 @@ class Tagger(nn.Module):
         backward_2_output = self.backward_lstm_2(layer_1_output)
         layer_2_output = torch.cat((forward_2_output, backward_2_output), dim=2)
 
-        out = self.linear_1(layer_2_output)
-        out = self.tanh(out)
+        out = self.linear(layer_2_output)
+        # out = self.tanh(out)
         # out = nn.Dropout()(out)
-        out = self.linear_2(out)
+        # out = self.linear_2(out)
 
         return out
 

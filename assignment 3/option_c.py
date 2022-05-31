@@ -5,6 +5,12 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import utils
 
+EMBEDDING_DIM = 50
+HIDDEN_STATE_DIM_1 = 75
+HIDDEN_STATE_DIM_2 = 100
+EPOCHS = 5
+LEARNING_RATE = 0.01
+
 
 class OptionCDataset(Dataset):
     def __init__(self, data_path, tags, is_train, corpus, prefixes, suffixes, delimiter=' '):
@@ -104,7 +110,8 @@ class Lstm(nn.Module):
                 w = torch.add(word_embedding, prefix_embedding)
                 w = torch.add(w, suffix_embedding)
                 lstm_input.append(w)
-            out = torch.stack(lstm_input)
+            out = torch.stack(lstm_input).to(torch.float)
+            out = out.view(sequence_len, -1, self.input_dim)
 
         iterating_range = range(sequence_len) if self.is_forward else range(sequence_len - 1, -1, -1)
         hidden_states = []
@@ -114,17 +121,82 @@ class Lstm(nn.Module):
         return torch.stack(hidden_states)
 
 
+class Tagger(nn.Module):
+    def __init__(self, tags, embeddings_matrix, num_of_prefixes, num_of_suffixes):
+        super(Tagger, self).__init__()
+
+        self.tags = tags
+
+        self.forward_lstm_1 = Lstm(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, is_embedding_layer=True,
+                                   embeddings_matrix=embeddings_matrix, num_of_prefixes=num_of_prefixes,
+                                   num_of_suffixes=num_of_suffixes)
+        self.backward_lstm_1 = Lstm(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, is_forward=False, is_embedding_layer=True,
+                                    embeddings_matrix=embeddings_matrix, num_of_prefixes=num_of_prefixes,
+                                    num_of_suffixes=num_of_suffixes)
+        self.forward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, is_embedding_layer=False)
+        self.backward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, is_forward=False,
+                                    is_embedding_layer=False)
+        self.linear = nn.Linear(2 * HIDDEN_STATE_DIM_2, len(self.tags))
+
+    def forward(self, x):
+        forward_1_output = self.forward_lstm_1(x)
+        backward_1_output = self.backward_lstm_1(x)
+        layer_1_output = torch.cat((forward_1_output, backward_1_output), dim=2)
+
+        forward_2_output = self.forward_lstm_2(layer_1_output)
+        backward_2_output = self.backward_lstm_2(layer_1_output)
+        layer_2_output = torch.cat((forward_2_output, backward_2_output), dim=2)
+
+        out = self.linear(layer_2_output)
+        return out
+
+
+def train(train_dataloader, tags, embeddings_matrix, num_of_prefixes, num_of_suffixes, dev_dataloader=None, ):
+    model = Tagger(tags, embeddings_matrix, num_of_prefixes, num_of_suffixes)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    for epoch in range(EPOCHS):
+        epoch_loss = 0
+        for x, y in train_dataloader:
+            outputs = model(x)
+            loss = criterion(outputs[:, 0, :], y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss
+        accuracy = validate(model, dev_dataloader)
+        # accuracy = 0
+        print(f'epoch {epoch + 1}: loss - {epoch_loss / len(train_dataloader)}, accuracy - {accuracy}')
+
+
+def validate(model, dev_dataloader):
+    with torch.no_grad():
+        correct = 0
+        samples = 0
+
+        for x, y in dev_dataloader:
+            outputs = model(x)
+            _, predictions = torch.max(outputs, 2)
+            for y_i, p_i in zip(y, predictions):
+                if y_i[p_i.item()].item() != 0:
+                    correct += 1
+                samples += 1
+
+        return correct / samples
+
+
 def main():
     corpus, prefixes, suffixes = utils.create_corpus_with_subwords(f'{utils.EMBEDDING_PATH}/vocab.txt')
     embedding_matrix = utils.create_embedding_matrix(f'{utils.EMBEDDING_PATH}/wordVectors.txt')
     train_dataset = OptionCDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS,
                                    is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
     train_dataloader = DataLoader(train_dataset, batch_size=None, shuffle=False)
-    model = Lstm(50, 60, num_of_prefixes=len(prefixes)+1, num_of_suffixes=len(suffixes)+1,
-                 embeddings_matrix=embedding_matrix)
-    for x, y in train_dataloader:
-        outputs = model(x)
-        pass
+    dev_dataloader = OptionCDataset(utils.POS_DEV_PATH, utils.POS_TAGS,
+                                    is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
+    dev_dataloader = DataLoader(dev_dataloader, batch_size=None, shuffle=False)
+    train(train_dataloader, utils.POS_TAGS, embedding_matrix, len(prefixes), len(suffixes), dev_dataloader=dev_dataloader)
 
 
 if __name__ == '__main__':

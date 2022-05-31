@@ -161,20 +161,34 @@ def validate(model, dev_dataloader):
             outputs = model(x)
             _, predictions = torch.max(outputs, 2)
             for y_i, p_i in zip(y, predictions):
-                if y_i[p_i.item()].item() != 0:
-                    correct += 1
+                # if y_i[p_i.item()].item() != 0:
+                #     correct += 1
+                # samples += 1
+                if y_i[p_i.item()].item() == 0:
+                    samples += 1
+                    continue
+                if utils.NER_TAGS[p_i.item()] == 'O':
+                    samples -= 1
+                    continue
+                correct += 1
                 samples += 1
 
         return correct / samples
 
 
 def main():
-    corpus = utils.create_corpus(utils.POS_TRAIN_PATH)
-    train_data = OptionADataset(utils.POS_DEBUG_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
+    # corpus = utils.create_corpus(utils.POS_TRAIN_PATH)
+    # train_data = OptionADataset(utils.POS_DEBUG_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
+    # train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    # dev_data = OptionADataset(utils.POS_DEV_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
+    # dev_dataloader = DataLoader(dev_data, batch_size=None)
+    # train(train_dataloader, dev_dataloader, utils.POS_TAGS, len(corpus) + 1)
+    corpus = utils.create_corpus(utils.NER_TRAIN_PATH)
+    train_data = OptionADataset(utils.NER_DEBUG_PATH, utils.NER_TAGS, corpus=corpus, is_train=True, delimiter='\t')
     train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
-    dev_data = OptionADataset(utils.POS_DEV_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
+    dev_data = OptionADataset(utils.NER_DEV_PATH, utils.NER_TAGS, corpus=corpus, is_train=True, delimiter='\t')
     dev_dataloader = DataLoader(dev_data, batch_size=None)
-    train(train_dataloader, dev_dataloader, utils.POS_TAGS, len(corpus) + 1)
+    train(train_dataloader, dev_dataloader, utils.NER_TAGS, len(corpus) + 1)
 
 
 if __name__ == '__main__':
