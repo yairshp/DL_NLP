@@ -5,10 +5,10 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from sklearn import metrics
 
-POS_DEBUG_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/debug'
-POS_TRAIN_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/train'
-POS_DEV_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/dev'
-POS_TEST_PATH = '/home/yair/Documents/University/Deep Learning for NLP/assignment 3/data/pos/test'
+POS_DEBUG_PATH = '../data/pos/debug'
+POS_TRAIN_PATH = '../data/pos/train'
+POS_DEV_PATH = '../data/pos/dev'
+POS_TEST_PATH = '../data/pos/test'
 UNKNOWN = 'UUUNNNKKK'
 POS_TAGS = ['PADDING', 'CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', 'MD', 'NN', 'NNS', 'NNP', 'NNPS',
             'PDT', 'POS', 'PRP', 'PRP$', 'RB', 'RBR', 'RBS', 'RP', 'SYM', 'TO', 'UH', 'VB', 'VBD', 'VBG', 'VBN', 'VBP',

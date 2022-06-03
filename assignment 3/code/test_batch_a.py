@@ -3,14 +3,20 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
 import utils
 
+# EMBEDDING_DIM = 20
+# HIDDEN_STATE_DIM_1 = 30
+# HIDDEN_STATE_DIM_2 = 50
+# HIDDEN_LAYER_DIM = 100
 EMBEDDING_DIM = 20
 HIDDEN_STATE_DIM_1 = 30
 HIDDEN_STATE_DIM_2 = 50
 HIDDEN_LAYER_DIM = 100
 EPOCHS = 20
-LEARNING_RATE = 0.013
+LEARNING_RATE = 0.001
+BATCH_SIZE = 32
 
 
 class OptionADataset(Dataset):
@@ -79,15 +85,16 @@ class Lstm(nn.Module):
         self.hidden_state_dim = hidden_state_dim
 
         if self.is_embedding_layer:
-            self.embedding_layer = nn.Embedding(corpus_size, self.input_dim)
+            self.embedding_layer = nn.Embedding(corpus_size, self.input_dim, padding_idx=0)
 
         self.lstm_cell = nn.LSTMCell(self.input_dim, self.hidden_state_dim)
 
     def forward(self, x):
-        sequence_len = x.size(0)
+        batch_size = x.size(0)
+        sequence_len = x.size(1)
 
-        hidden_state = torch.zeros(1, self.hidden_state_dim)
-        cell_state = torch.zeros(1, self.hidden_state_dim)
+        hidden_state = torch.zeros(batch_size, self.hidden_state_dim)
+        cell_state = torch.zeros(batch_size, self.hidden_state_dim)
         torch.nn.init.xavier_normal_(hidden_state)
         torch.nn.init.xavier_normal_(cell_state)
 
@@ -95,14 +102,14 @@ class Lstm(nn.Module):
 
         if self.is_embedding_layer:
             out = self.embedding_layer(out)
-            out = out.view(sequence_len, -1, self.input_dim)
+            out = out.view(batch_size, -1, self.input_dim)
 
         iterating_range = range(sequence_len) if self.is_forward else range(sequence_len - 1, -1, -1)
         hidden_states = []
         for i in iterating_range:
-            hidden_state, cell_state = self.lstm_cell(out[i], (hidden_state, cell_state))
+            hidden_state, cell_state = self.lstm_cell(out[:, i, :], (hidden_state, cell_state))
             hidden_states.append(hidden_state)
-        return torch.stack(hidden_states)
+        return torch.stack(hidden_states).view(batch_size, -1, self.hidden_state_dim)
 
 
 class Tagger(nn.Module):
@@ -127,7 +134,9 @@ class Tagger(nn.Module):
         backward_2_output = self.backward_lstm_2(layer_1_output)
         layer_2_output = torch.cat((forward_2_output, backward_2_output), dim=2)
 
-        out = self.linear(layer_2_output)
+        out = layer_2_output
+        out = self.linear(out)
+        # out = nn.Dropout()(out)
 
         return out
 
@@ -138,56 +147,85 @@ def train(train_dataloader, dev_dataloader, tags, corpus_size):
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for epoch in range(EPOCHS):
+        model.train()
         epoch_loss = 0
-        for x, y in train_dataloader:
+        for x, y, x_lengths, _ in train_dataloader:
             outputs = model(x)
-            loss = criterion(outputs[:, 0, :], y)
+
+            drop_pad_outputs = []
+            for output, x_length in zip(outputs, x_lengths):
+                drop_pad_outputs.append(output[:x_length, :])
+
+            loss = 0
+            for i in range(len(x)):
+                loss += criterion(drop_pad_outputs[i], y[i])
+            loss /= len(x)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             epoch_loss += loss
-        accuracy = validate(model, dev_dataloader)
+        accuracy = validate(model, dev_dataloader, criterion)
         # accuracy = 0
         print(f'epoch {epoch + 1}: loss - {epoch_loss / len(train_dataloader)}, accuracy - {accuracy}')
 
 
-def validate(model, dev_dataloader):
+def validate(model, dev_dataloader, criterion):
+    model.eval()
     with torch.no_grad():
         correct = 0
         samples = 0
 
-        for x, y in dev_dataloader:
+        for x, y, x_lengths, _ in dev_dataloader:
+            # samples += x.size(0)
             outputs = model(x)
-            _, predictions = torch.max(outputs, 2)
-            for y_i, p_i in zip(y, predictions):
-                # if y_i[p_i.item()].item() != 0:
-                #     correct += 1
-                # samples += 1
-                if y_i[p_i.item()].item() == 0:
+
+            drop_pad_outputs = []
+            for output, x_length in zip(outputs, x_lengths):
+                drop_pad_outputs.append(output[:x_length, :])
+
+            loss = 0
+            for i in range(len(x)):
+                loss += criterion(drop_pad_outputs[i], y[i])
+            loss /= len(x)
+
+            predictions = [p for _, p in [torch.max(t, 1) for t in drop_pad_outputs]]
+            for y_batch, p_batch in zip(y, predictions):
+                for y_i, p_i in zip(y_batch, p_batch):
                     samples += 1
-                    continue
-                if utils.NER_TAGS[p_i.item()] == 'O':
-                    samples -= 1
-                    continue
-                correct += 1
-                samples += 1
+
+                    if y_i[p_i.item()].item() != 0:
+                        correct += 1
+                #
+                #     if y_i[p_i.item()].item() == 0:
+                #         continue
+                #     if utils.NER_TAGS[p_i.item()] == 'O':
+                #         samples -= 1
+                #         continue
+                #     correct += 1
 
         return correct / samples
+
+
+def pad_batch(batch):
+    (X, Y) = zip(*batch)
+    x_lengths = [len(x) for x in X]
+    padded_X = pad_sequence(X, batch_first=True, padding_value=0)
+    return padded_X, Y, x_lengths, x_lengths
 
 
 def main():
     # corpus = utils.create_corpus(utils.POS_TRAIN_PATH)
     # train_data = OptionADataset(utils.POS_DEBUG_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
-    # train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    # train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, collate_fn=pad_batch)
     # dev_data = OptionADataset(utils.POS_DEV_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
-    # dev_dataloader = DataLoader(dev_data, batch_size=None)
+    # dev_dataloader = DataLoader(dev_data, batch_size=BATCH_SIZE, collate_fn=pad_batch)
     # train(train_dataloader, dev_dataloader, utils.POS_TAGS, len(corpus) + 1)
-    corpus = utils.create_corpus(utils.NER_TRAIN_PATH)
+    corpus = utils.create_corpus(utils.NER_TRAIN_PATH, delimiter='\t')
     train_data = OptionADataset(utils.NER_DEBUG_PATH, utils.NER_TAGS, corpus=corpus, is_train=True, delimiter='\t')
-    train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    train_dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, collate_fn=pad_batch)
     dev_data = OptionADataset(utils.NER_DEV_PATH, utils.NER_TAGS, corpus=corpus, is_train=True, delimiter='\t')
-    dev_dataloader = DataLoader(dev_data, batch_size=None)
+    dev_dataloader = DataLoader(dev_data, batch_size=BATCH_SIZE, collate_fn=pad_batch)
     train(train_dataloader, dev_dataloader, utils.NER_TAGS, len(corpus) + 1)
 
 
