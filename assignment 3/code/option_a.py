@@ -190,10 +190,10 @@ def validate(model, dev_dataloader, ner_or_pos):
         return correct / samples
 
 
-def train_option_a(train_file, model_file, ner_or_pos, dev_file):
+def train_option_a(train_file, model_file, ner_or_pos, dev_file, corpus_path):
     delimiter = ' ' if ner_or_pos == POS else '\t'
     tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
-    corpus = utils.create_corpus(train_file, delimiter=delimiter)
+    corpus = utils.create_corpus(corpus_path, delimiter=delimiter)
     train_data = OptionADataset(train_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
     train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
     dev_data = OptionADataset(dev_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
@@ -202,9 +202,26 @@ def train_option_a(train_file, model_file, ner_or_pos, dev_file):
     torch.save(model, model_file)
 
 
-def predict_model_a(model_file, input_file, output_file, ner_or_pos):
+def predict_model_a(model_file, input_file, output_file, corpus_path, ner_or_pos):
+    # delimiter = ' ' if ner_or_pos == POS else '\t'
+    tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
+    corpus = utils.create_corpus(corpus_path)
     model = torch.load(model_file)
-
+    test_data = OptionADataset(input_file, tags, corpus=corpus, is_train=False)
+    test_dataloader = DataLoader(test_data, batch_size=None, shuffle=False)
+    predictions = []
+    for x in test_dataloader:
+        outputs = model(x)
+        _, sequence_predictions = torch.max(outputs, 2)
+        for p in sequence_predictions:
+            predictions.append(tags[p.item()])
+        predictions.append('')
+    words = pd.read_csv(input_file, header=None, skip_blank_lines=False, delimiter=' ')
+    with open(output_file, 'w') as writer:
+        for w, p in zip(words, predictions):
+            if type(w) != str:
+                continue
+            writer.write(f'{w} {p}\n')
 
 
 def main():

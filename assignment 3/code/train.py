@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument('dev_file')
     parser.add_argument('-v', '--vocab_file')
     parser.add_argument('-e', '--embedding_matrix_path')
+    parser.add_argument('-c', '--corpus_path')
 
     return parser.parse_args()
 
@@ -24,7 +25,7 @@ def main():
     args = parse_args()
     # repr_option, train_file, model_file, ner_or_pos, dev_file, options = sys.argv[1:]
     if args.repr_option == 'a':
-        train_option_a(args.train_file, args.model_file, args.ner_or_pos, args.dev_file)
+        train_option_a(args.train_file, args.model_file, args.ner_or_pos, args.dev_file, args.corpus_path)
     elif args.repr_option == 'b':
         train_option_b(args.train_file, args.model_file, args.ner_or_pos, args.dev_file)
     elif args.repr_option == 'c':
