@@ -11,9 +11,11 @@ WORDS_HIDDEN_DIM_1 = 30
 WORDS_HIDDEN_DIM_2 = 50
 WORD_EMBEDDING_DIM = 50
 TAGGER_INPUT_DIM = 50
-EPOCHS = 20
+EPOCHS = 5
 LEARNING_RATE = 0.01
 MAX_WORD_LEN = 30
+POS = 'POS'
+NER = 'NER'
 
 
 class OptionDDataset(Dataset):
@@ -45,6 +47,7 @@ class OptionDDataset(Dataset):
                 sentence = self.sentence_to_tensor(sentence_words, sentence_chars, sentence_tags)
                 sentences.append(sentence)
                 sentence_words = []
+                sentence_chars = []
                 sentence_tags = []
             elif self.is_train:
                 word = raw_data[0][i]
@@ -150,7 +153,7 @@ class Tagger(nn.Module):
 
         self.word_embedding = nn.Embedding(corpus_size, WORD_EMBEDDING_DIM)
         self.chars_lstm = CharsLstm(CHARS_EMBEDDING_DIM, CHARS_HIDDEN_DIM, len(utils.CHARS))
-        self.linear_before_lstm = nn.Linear(CHARS_EMBEDDING_DIM + WORD_EMBEDDING_DIM, TAGGER_INPUT_DIM)
+        self.linear_before_lstm = nn.Linear(CHARS_HIDDEN_DIM + WORD_EMBEDDING_DIM, TAGGER_INPUT_DIM)
         self.forward_lstm_1 = WordsLstm(TAGGER_INPUT_DIM, WORDS_HIDDEN_DIM_1)
         self.backward_lstm_1 = WordsLstm(TAGGER_INPUT_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
         self.forward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2)
@@ -158,8 +161,8 @@ class Tagger(nn.Module):
         self.linear_after_lstm = nn.Linear(2 * WORDS_HIDDEN_DIM_2, len(self.tags))
 
     def forward(self, x):
-        word_embedding_by_matrix = self.word_embedding(x)
-        word_embedding_by_chars = self.chars_lstm(x)
+        word_embedding_by_matrix = self.word_embedding(x[0])
+        word_embedding_by_chars = self.chars_lstm(x[1])
         embedding_output = torch.cat((word_embedding_by_matrix, word_embedding_by_chars), dim=1)
         embedding_output = self.linear_before_lstm(embedding_output)
 
@@ -171,19 +174,22 @@ class Tagger(nn.Module):
         backward_2_output = self.backward_lstm_2(layer_1_output)
         layer_2_output = torch.cat((forward_2_output, backward_2_output), dim=2)
 
-        out = self.linear(layer_2_output)
+        out = self.linear_after_lstm(layer_2_output)
 
         return out
 
 
-def train(train_dataloader, tags, corpus_size, dev_dataloader=None):
+def train(train_dataloader, tags, corpus_size, dev_dataloader, ner_or_pos):
     model = Tagger(tags, corpus_size)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for epoch in range(EPOCHS):
+        print(f'epoch {epoch + 1}:')
+        sentence_counter = 0
         epoch_loss = 0
         for x, y in train_dataloader:
+            sentence_counter += 1
             outputs = model(x)
             loss = criterion(outputs[:, 0, :], y)
             optimizer.zero_grad()
@@ -191,34 +197,57 @@ def train(train_dataloader, tags, corpus_size, dev_dataloader=None):
             optimizer.step()
 
             epoch_loss += loss
-        accuracy = validate(model, dev_dataloader)
-        # accuracy = 0
-        print(f'epoch {epoch + 1}: loss - {epoch_loss / len(train_dataloader)}, accuracy - {accuracy}')
+
+            if sentence_counter % 500 == 0:
+                accuracy = validate(model, dev_dataloader, ner_or_pos)
+                print(f'\tsentence {sentence_counter}: dev accuracy - {accuracy}')
+
+    return model
 
 
-def validate(model, dev_dataloader):
+def validate(model, dev_dataloader, ner_or_pos):
     with torch.no_grad():
         correct = 0
         samples = 0
 
         for x, y in dev_dataloader:
+            samples += x[0].size(0)
             outputs = model(x)
             _, predictions = torch.max(outputs, 2)
             for y_i, p_i in zip(y, predictions):
-                if y_i[p_i.item()].item() != 0:
+                if ner_or_pos == POS:
+                    if y_i[p_i.item()].item() != 0:
+                        correct += 1
+                else:
+                    if y_i[p_i.item()].item() == 0:
+                        continue
+                    if utils.NER_TAGS[p_i.item()] == 'O':
+                        samples -= 1
+                        continue
                     correct += 1
-                samples += 1
 
         return correct / samples
+
+
+def train_option_d(train_file, model_file, ner_or_pos, dev_file):
+    delimiter = ' ' if ner_or_pos == POS else '\t'
+    tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
+    corpus = utils.create_corpus(train_file, delimiter=delimiter)
+    train_data = OptionDDataset(train_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
+    train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    dev_data = OptionDDataset(dev_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
+    dev_dataloader = DataLoader(dev_data, batch_size=None, shuffle=False)
+    model = train(train_dataloader, tags, len(corpus), dev_dataloader, ner_or_pos)
+    torch.save(model, model_file)
 
 
 def main():
     corpus = utils.create_corpus(utils.POS_TRAIN_PATH)
     train_data = OptionDDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS, is_train=True, corpus=corpus)
     train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
-    dev_data = OptionDDataset(utils.POS_DEV_PATH, utils.POS_TAGS, is_train=True, corpus=corpus)
-    dev_dataloader = DataLoader(dev_data, batch_size=None, shuffle=False)
-    train(train_dataloader, utils.POS_TAGS, len(corpus), dev_dataloader=dev_dataloader)
+    # dev_data = OptionDDataset(utils.POS_DEV_PATH, utils.POS_TAGS, is_train=True, corpus=corpus)
+    # dev_dataloader = DataLoader(dev_data, batch_size=None, shuffle=False)
+    train(train_dataloader, utils.POS_TAGS, len(corpus), dev_dataloader=None)
 
 
 if __name__ == '__main__':

@@ -10,9 +10,11 @@ CHARS_HIDDEN_DIM = 50
 WORDS_HIDDEN_DIM_1 = 30
 WORDS_HIDDEN_DIM_2 = 50
 HIDDEN_LAYER_DIM = 100
-EPOCHS = 20
+EPOCHS = 5
 LEARNING_RATE = 0.01
 MAX_WORD_LEN = 30
+POS = 'POS'
+NER = 'NER'
 
 
 class OptionBDataset(Dataset):
@@ -169,14 +171,17 @@ class Tagger(nn.Module):
         return out
 
 
-def train(train_dataloader, tags, dev_dataloader=None):
+def train(train_dataloader, tags, dev_dataloader, ner_or_pos):
     model = Tagger(tags)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for epoch in range(EPOCHS):
+        print(f'epoch {epoch + 1}:')
+        sentence_counter = 0
         epoch_loss = 0
         for x, y in train_dataloader:
+            sentence_counter += 1
             outputs = model(x)
             loss = criterion(outputs[:, 0, :], y)
             optimizer.zero_grad()
@@ -184,25 +189,48 @@ def train(train_dataloader, tags, dev_dataloader=None):
             optimizer.step()
 
             epoch_loss += loss
-        accuracy = validate(model, dev_dataloader)
-        # accuracy = 0
-        print(f'epoch {epoch + 1}: loss - {epoch_loss / len(train_dataloader)}, accuracy - {accuracy}')
+
+            if sentence_counter % 500 == 0:
+                accuracy = validate(model, dev_dataloader, ner_or_pos)
+                print(f'\tsentence {sentence_counter}: dev accuracy - {accuracy}')
+
+    return model
 
 
-def validate(model, dev_dataloader):
+def validate(model, dev_dataloader, ner_or_pos):
     with torch.no_grad():
         correct = 0
         samples = 0
 
         for x, y in dev_dataloader:
+            samples += x.size(0)
             outputs = model(x)
             _, predictions = torch.max(outputs, 2)
             for y_i, p_i in zip(y, predictions):
-                if y_i[p_i.item()].item() != 0:
+                if ner_or_pos == POS:
+                    if y_i[p_i.item()].item() != 0:
+                        correct += 1
+                else:
+                    if y_i[p_i.item()].item() == 0:
+                        continue
+                    if utils.NER_TAGS[p_i.item()] == 'O':
+                        samples -= 1
+                        continue
                     correct += 1
-                samples += 1
 
         return correct / samples
+
+
+def train_option_b(train_file, model_file, ner_or_pos, dev_file):
+    delimiter = ' ' if ner_or_pos == POS else '\t'
+    tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
+    corpus = utils.create_corpus(train_file, delimiter=delimiter)
+    train_data = OptionBDataset(train_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
+    train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    dev_data = OptionBDataset(dev_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
+    dev_dataloader = DataLoader(dev_data, batch_size=None, shuffle=False)
+    model = train(train_dataloader, tags, dev_dataloader, ner_or_pos)
+    torch.save(model, model_file)
 
 
 def main():

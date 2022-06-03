@@ -13,8 +13,10 @@ HIDDEN_LAYER_DIM = 100
 # HIDDEN_STATE_DIM_1 = 50
 # HIDDEN_STATE_DIM_2 = 100
 # HIDDEN_LAYER_DIM = 100
-EPOCHS = 20
-LEARNING_RATE = 0.01
+EPOCHS = 5
+LEARNING_RATE = 0.013
+POS = 'POS'
+NER = 'NER'
 
 
 class OptionADataset(Dataset):
@@ -138,14 +140,17 @@ class Tagger(nn.Module):
         return out
 
 
-def train(train_dataloader, dev_dataloader, tags, corpus_size):
+def train(train_dataloader, dev_dataloader, tags, corpus_size, ner_or_pos):
     model = Tagger(tags, corpus_size)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     for epoch in range(EPOCHS):
+        print(f'epoch {epoch + 1}:')
         epoch_loss = 0
+        sentence_counter = 0
         for x, y in train_dataloader:
+            sentence_counter += 1
             outputs = model(x)
             loss = criterion(outputs[:, 0, :], y)
             optimizer.zero_grad()
@@ -153,12 +158,15 @@ def train(train_dataloader, dev_dataloader, tags, corpus_size):
             optimizer.step()
 
             epoch_loss += loss
-        accuracy = validate(model, dev_dataloader)
-        # accuracy = 0
-        print(f'epoch {epoch + 1}: loss - {epoch_loss / len(train_dataloader)}, accuracy - {accuracy}')
+
+            if sentence_counter % 500 == 0:
+                accuracy = validate(model, dev_dataloader, ner_or_pos)
+                print(f'\tsentence {sentence_counter}: dev accuracy - {accuracy}')
+
+    return model
 
 
-def validate(model, dev_dataloader):
+def validate(model, dev_dataloader, ner_or_pos):
     with torch.no_grad():
         correct = 0
         samples = 0
@@ -168,19 +176,35 @@ def validate(model, dev_dataloader):
             outputs = model(x)
             _, predictions = torch.max(outputs, 2)
             for y_i, p_i in zip(y, predictions):
-                if y_i[p_i.item()].item() != 0:
+                if ner_or_pos == POS:
+                    if y_i[p_i.item()].item() != 0:
+                        correct += 1
+                else:
+                    if y_i[p_i.item()].item() == 0:
+                        continue
+                    if utils.NER_TAGS[p_i.item()] == 'O':
+                        samples -= 1
+                        continue
                     correct += 1
-                samples += 1
-                # if y_i[p_i.item()].item() == 0:
-                #     # samples += 1
-                #     continue
-                # if utils.NER_TAGS[p_i.item()] == 'O':
-                #     samples -= 1
-                #     continue
-                # correct += 1
-                # # samples += 1
 
         return correct / samples
+
+
+def train_option_a(train_file, model_file, ner_or_pos, dev_file):
+    delimiter = ' ' if ner_or_pos == POS else '\t'
+    tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
+    corpus = utils.create_corpus(train_file, delimiter=delimiter)
+    train_data = OptionADataset(train_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
+    train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
+    dev_data = OptionADataset(dev_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
+    dev_dataloader = DataLoader(dev_data, batch_size=None, shuffle=False)
+    model = train(train_dataloader, dev_dataloader, tags, len(corpus) + 1, ner_or_pos)
+    torch.save(model, model_file)
+
+
+def predict_model_a(model_file, input_file, output_file, ner_or_pos):
+    model = torch.load(model_file)
+
 
 
 def main():
@@ -189,7 +213,7 @@ def main():
     train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
     dev_data = OptionADataset(utils.POS_DEV_PATH, utils.POS_TAGS, corpus=corpus, is_train=True)
     dev_dataloader = DataLoader(dev_data, batch_size=None)
-    train(train_dataloader, dev_dataloader, utils.POS_TAGS, len(corpus) + 1)
+    train(train_dataloader, dev_dataloader, utils.POS_TAGS, len(corpus) + 1, POS)
     # corpus = utils.create_corpus(utils.NER_TRAIN_PATH, delimiter='\t')
     # train_data = OptionADataset(utils.NER_DEBUG_PATH, utils.NER_TAGS, corpus=corpus, is_train=True, delimiter='\t')
     # train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
