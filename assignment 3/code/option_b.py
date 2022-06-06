@@ -233,6 +233,28 @@ def train_option_b(train_file, model_file, ner_or_pos, dev_file):
     torch.save(model, model_file)
 
 
+def predict_model_b(model_file, input_file, output_file, corpus_path, ner_or_pos):
+    # delimiter = ' ' if ner_or_pos == POS else '\t'
+    tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
+    corpus = utils.create_corpus(corpus_path)
+    model = torch.load(model_file)
+    test_data = OptionBDataset(input_file, tags, corpus=corpus, is_train=False)
+    test_dataloader = DataLoader(test_data, batch_size=None, shuffle=False)
+    predictions = []
+    for x in test_dataloader:
+        outputs = model(x)
+        _, sequence_predictions = torch.max(outputs, 2)
+        for p in sequence_predictions:
+            predictions.append(tags[p.item()])
+        predictions.append('')
+    words = pd.read_csv(input_file, header=None, skip_blank_lines=False, delimiter=' ')
+    with open(output_file, 'w') as writer:
+        for w, p in zip(words[0], predictions):
+            if type(w) != str:
+                writer.write('\n')
+            writer.write(f'{w} {p}\n')
+
+
 def main():
     corpus = utils.create_corpus(utils.POS_TRAIN_PATH)
     train_data = OptionBDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS, is_train=True, corpus=corpus)

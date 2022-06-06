@@ -218,9 +218,9 @@ def predict_model_a(model_file, input_file, output_file, corpus_path, ner_or_pos
         predictions.append('')
     words = pd.read_csv(input_file, header=None, skip_blank_lines=False, delimiter=' ')
     with open(output_file, 'w') as writer:
-        for w, p in zip(words, predictions):
+        for w, p in zip(words[0], predictions):
             if type(w) != str:
-                continue
+                writer.write('\n')
             writer.write(f'{w} {p}\n')
 
 

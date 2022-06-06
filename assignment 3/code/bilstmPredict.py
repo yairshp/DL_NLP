@@ -1,5 +1,8 @@
 import argparse
 from option_a import predict_model_a
+from option_b import predict_model_b
+from option_c import predict_model_c
+from option_d import predict_model_d
 
 
 def parse_args():
@@ -20,11 +23,11 @@ def main():
     if args.repr_option == 'a':
         predict_model_a(args.model_file, args.input_file, args.output_file, args.corpus_file, args.ner_or_pos)
     elif args.repr_option == 'b':
-        pass
+        predict_model_b(args.model_file, args.input_file, args.output_file, args.corpus_file, args.ner_or_pos)
     elif args.repr_option == 'c':
-        pass
+        predict_model_c(args.model_file, args.input_file, args.output_file, args.corpus_file, args.ner_or_pos)
     elif args.repr_option == 'd':
-        pass
+        predict_model_d(args.model_file, args.input_file, args.output_file, args.corpus_file, args.ner_or_pos)
     else:
         print('Error! Invalid repr option!')
 
