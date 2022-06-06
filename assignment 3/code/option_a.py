@@ -25,7 +25,7 @@ class OptionADataset(Dataset):
         self.corpus = corpus
         self.tags = tags
 
-        raw_data = pd.read_csv(data_path, delimiter=delimiter, skip_blank_lines=False, header=None)
+        raw_data = pd.read_csv(data_path, delimiter=delimiter, skip_blank_lines=False, header=None, quoting=3)
         self.sentences = self.extract_sentences_from_raw_data(raw_data)
 
     def __len__(self):

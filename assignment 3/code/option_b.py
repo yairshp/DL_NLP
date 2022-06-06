@@ -11,7 +11,7 @@ WORDS_HIDDEN_DIM_1 = 30
 WORDS_HIDDEN_DIM_2 = 50
 HIDDEN_LAYER_DIM = 100
 EPOCHS = 5
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.001
 MAX_WORD_LEN = 30
 POS = 'POS'
 NER = 'NER'
@@ -23,7 +23,7 @@ class OptionBDataset(Dataset):
         self.corpus = corpus
         self.tags = tags
 
-        raw_data = pd.read_csv(data_path, delimiter=delimiter, skip_blank_lines=False, header=None)
+        raw_data = pd.read_csv(data_path, delimiter=delimiter, skip_blank_lines=False, header=None, quoting=3)
         self.sentences = self.extract_sentences_from_raw_data(raw_data)
 
     def __len__(self):
@@ -165,7 +165,7 @@ class Tagger(nn.Module):
 
         out = self.linear(layer_2_output)
         # out = self.tanh(out)
-        # out = nn.Dropout()(out)
+        out = nn.Dropout()(out)
         # out = self.linear_2(out)
 
         return out
@@ -221,10 +221,10 @@ def validate(model, dev_dataloader, ner_or_pos):
         return correct / samples
 
 
-def train_option_b(train_file, model_file, ner_or_pos, dev_file):
+def train_option_b(train_file, model_file, ner_or_pos, dev_file, corpus_path):
     delimiter = ' ' if ner_or_pos == POS else '\t'
     tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
-    corpus = utils.create_corpus(train_file, delimiter=delimiter)
+    corpus = utils.create_corpus(corpus_path, delimiter=delimiter)
     train_data = OptionBDataset(train_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)
     train_dataloader = DataLoader(train_data, batch_size=None, shuffle=True)
     dev_data = OptionBDataset(dev_file, tags, corpus=corpus, is_train=True, delimiter=delimiter)

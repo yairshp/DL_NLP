@@ -23,16 +23,15 @@ def parse_args():
 
 def main():
     args = parse_args()
-    # repr_option, train_file, model_file, ner_or_pos, dev_file, options = sys.argv[1:]
     if args.repr_option == 'a':
         train_option_a(args.train_file, args.model_file, args.ner_or_pos, args.dev_file, args.corpus_path)
     elif args.repr_option == 'b':
-        train_option_b(args.train_file, args.model_file, args.ner_or_pos, args.dev_file)
+        train_option_b(args.train_file, args.model_file, args.ner_or_pos, args.dev_file, args.corpus_path)
     elif args.repr_option == 'c':
         train_option_c(args.train_file, args.model_file, args.ner_or_pos, args.dev_file, args.vocab_file,
                        args.embedding_matrix_path)
     elif args.repr_option == 'd':
-        train_option_d(args.train_file, args.model_file, args.ner_or_pos, args.dev_file)
+        train_option_d(args.train_file, args.model_file, args.ner_or_pos, args.dev_file, args.corpus_path)
     else:
         print('Error! invalid repr option!')
 

@@ -125,8 +125,10 @@ def prepare_data():
     # train data
     # raw_positive_data = get_raw_data('../data/pos_examples')
     # raw_negative_data = get_raw_data('../data/neg_examples')
-    raw_positive_data = get_raw_data('../data/evens_train')
-    raw_negative_data = get_raw_data('../data/odds_train')
+    # raw_positive_data = get_raw_data('../data/section_2/palindrom_pos_train')
+    # raw_negative_data = get_raw_data('../data/section_2/not_palindroms_train')
+    raw_positive_data = get_raw_data('../data/section_2/same_size_train')
+    raw_negative_data = get_raw_data('../data/section_2/different_size_train')
 
     labeled_positive_data = add_label(raw_positive_data, is_pos=True)
     labeled_negative_data = add_label(raw_negative_data, is_pos=False)
@@ -140,8 +142,10 @@ def prepare_data():
     # dev data
     # raw_positive_data = get_raw_data('../data/pos_dev')
     # raw_negative_data = get_raw_data('../data/neg_dev')
-    raw_positive_data = get_raw_data('../data/odds_test')
-    raw_negative_data = get_raw_data('../data/evens_test')
+    # raw_positive_data = get_raw_data('../data/section_2/palindrom_pos_test')
+    # raw_negative_data = get_raw_data('../data/section_2/not_palindroms_test')
+    raw_positive_data = get_raw_data('../data/section_2/same_size_test')
+    raw_negative_data = get_raw_data('../data/section_2/different_size_test')
 
     labeled_positive_data = add_label(raw_positive_data, is_pos=True)
     labeled_negative_data = add_label(raw_negative_data, is_pos=False)
