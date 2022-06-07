@@ -90,9 +90,9 @@ class OptionDDataset(Dataset):
         return indices
 
 
-class CharsLstm(nn.Module):
+class CharsLstmD(nn.Module):
     def __init__(self, input_dim, hidden_state_dim, num_of_chars):
-        super(CharsLstm, self).__init__()
+        super(CharsLstmD, self).__init__()
 
         self.input_dim = input_dim
         self.hidden_state_dim = hidden_state_dim
@@ -117,9 +117,9 @@ class CharsLstm(nn.Module):
         return hidden_state
 
 
-class WordsLstm(nn.Module):
+class WordsLstmD(nn.Module):
     def __init__(self, input_dim, hidden_state_dim, is_forward=True):
-        super(WordsLstm, self).__init__()
+        super(WordsLstmD, self).__init__()
         self.is_forward = is_forward
 
         self.input_dim = input_dim
@@ -145,19 +145,19 @@ class WordsLstm(nn.Module):
         return torch.stack(hidden_states)
 
 
-class Tagger(nn.Module):
+class TaggerD(nn.Module):
     def __init__(self, tags, corpus_size):
-        super(Tagger, self).__init__()
+        super(TaggerD, self).__init__()
 
         self.tags = tags
 
         self.word_embedding = nn.Embedding(corpus_size, WORD_EMBEDDING_DIM)
-        self.chars_lstm = CharsLstm(CHARS_EMBEDDING_DIM, CHARS_HIDDEN_DIM, len(utils.CHARS))
+        self.chars_lstm = CharsLstmD(CHARS_EMBEDDING_DIM, CHARS_HIDDEN_DIM, len(utils.CHARS))
         self.linear_before_lstm = nn.Linear(CHARS_HIDDEN_DIM + WORD_EMBEDDING_DIM, TAGGER_INPUT_DIM)
-        self.forward_lstm_1 = WordsLstm(TAGGER_INPUT_DIM, WORDS_HIDDEN_DIM_1)
-        self.backward_lstm_1 = WordsLstm(TAGGER_INPUT_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
-        self.forward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2)
-        self.backward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=False)
+        self.forward_lstm_1 = WordsLstmD(TAGGER_INPUT_DIM, WORDS_HIDDEN_DIM_1)
+        self.backward_lstm_1 = WordsLstmD(TAGGER_INPUT_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
+        self.forward_lstm_2 = WordsLstmD(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2)
+        self.backward_lstm_2 = WordsLstmD(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=False)
         self.linear_after_lstm = nn.Linear(2 * WORDS_HIDDEN_DIM_2, len(self.tags))
 
     def forward(self, x):
@@ -180,7 +180,7 @@ class Tagger(nn.Module):
 
 
 def train(train_dataloader, tags, corpus_size, dev_dataloader, ner_or_pos):
-    model = Tagger(tags, corpus_size)
+    model = TaggerD(tags, corpus_size)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 

@@ -79,31 +79,25 @@ def generate_evens():
     return sequence
 
 
-def add_to_fixed_size(delta):
-    return pick_random_char() * delta
-
-
-def generate_fixed_size():
+def generate_with_123():
     sequence = ''
     for i in range(10):
-        char = pick_random_char()
-        sequence += generate_single_char_section(char)
+        ch = pick_random_char()
+        sequence += generate_single_char_section(ch)
         sequence += generate_single_digit_section()
-    if len(sequence) > SAME_SIZE_LEN:
-        sequence = sequence[:SAME_SIZE_LEN]
-    elif len(sequence) < SAME_SIZE_LEN:
-        sequence += add_to_fixed_size(SAME_SIZE_LEN - len(sequence))
+    index = random.randrange(0, len(sequence) - 3)
+    sequence = sequence[:index] + '123' + sequence[index:]
     return sequence
 
 
-def generate_different_size():
+def generate_without_123():
     sequence = ''
     for i in range(10):
-        char = pick_random_char()
-        sequence += generate_single_char_section(char)
+        ch = pick_random_char()
+        sequence += generate_single_char_section(ch)
         sequence += generate_single_digit_section()
-    if len(sequence) == SAME_SIZE_LEN:
-        sequence += generate_single_digit_section()
+    if '123' in sequence:
+        sequence.replace('123', '')
     return sequence
 
 
@@ -122,10 +116,10 @@ def main():
     # write_examples_to_file('../data/odds_test', odds)
     # evens = [generate_evens() for _ in range(200)]
     # write_examples_to_file('../data/evens_test', evens)
-    same_size = [generate_fixed_size() for _ in range(500)]
-    write_examples_to_file('../data/section_2/same_size_train', same_size)
-    different_size = [generate_different_size() for _ in range(500)]
-    write_examples_to_file('../data/section_2/different_size_train', different_size)
+    with_123 = [generate_with_123() for _ in range(200)]
+    write_examples_to_file('../data/section_2/with_123_test', with_123)
+    without_123 = [generate_without_123() for _ in range(200)]
+    write_examples_to_file('../data/section_2/without_123_test', without_123)
 
 
 if __name__ == '__main__':

@@ -74,9 +74,9 @@ class OptionADataset(Dataset):
         return sentence
 
 
-class Lstm(nn.Module):
+class LstmA(nn.Module):
     def __init__(self, input_dim, hidden_state_dim, corpus_size, is_embedding_layer=True, is_forward=True):
-        super(Lstm, self).__init__()
+        super(LstmA, self).__init__()
 
         self.is_forward = is_forward
         self.is_embedding_layer = is_embedding_layer
@@ -111,15 +111,15 @@ class Lstm(nn.Module):
         return torch.stack(hidden_states)
 
 
-class Tagger(nn.Module):
+class TaggerA(nn.Module):
     def __init__(self, tags, corpus_size):
-        super(Tagger, self).__init__()
+        super(TaggerA, self).__init__()
 
-        self.forward_lstm_1 = Lstm(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, corpus_size)
-        self.backward_lstm_1 = Lstm(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, corpus_size, is_forward=False)
-        self.forward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, corpus_size, is_embedding_layer=False)
-        self.backward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, corpus_size,
-                                    is_forward=False, is_embedding_layer=False)
+        self.forward_lstm_1 = LstmA(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, corpus_size)
+        self.backward_lstm_1 = LstmA(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, corpus_size, is_forward=False)
+        self.forward_lstm_2 = LstmA(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, corpus_size, is_embedding_layer=False)
+        self.backward_lstm_2 = LstmA(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, corpus_size,
+                                     is_forward=False, is_embedding_layer=False)
         # self.linear_1 = nn.Linear(2 * HIDDEN_STATE_DIM_2, HIDDEN_LAYER_DIM)
         # self.tanh = nn.Tanh()
         self.linear = nn.Linear(2 * HIDDEN_STATE_DIM_2, len(tags))
@@ -141,7 +141,7 @@ class Tagger(nn.Module):
 
 
 def train(train_dataloader, dev_dataloader, tags, corpus_size, ner_or_pos):
-    model = Tagger(tags, corpus_size)
+    model = TaggerA(tags, corpus_size)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
@@ -203,7 +203,7 @@ def train_option_a(train_file, model_file, ner_or_pos, dev_file, corpus_path):
 
 
 def predict_model_a(model_file, input_file, output_file, corpus_path, ner_or_pos):
-    # delimiter = ' ' if ner_or_pos == POS else '\t'
+    delimiter = ' ' if ner_or_pos == POS else '\t'
     tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
     corpus = utils.create_corpus(corpus_path)
     model = torch.load(model_file)

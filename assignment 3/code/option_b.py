@@ -83,9 +83,9 @@ class OptionBDataset(Dataset):
         return indices
 
 
-class CharsLstm(nn.Module):
+class CharsLstmB(nn.Module):
     def __init__(self, input_dim, hidden_state_dim, num_of_chars):
-        super(CharsLstm, self).__init__()
+        super(CharsLstmB, self).__init__()
 
         self.input_dim = input_dim
         self.hidden_state_dim = hidden_state_dim
@@ -110,9 +110,9 @@ class CharsLstm(nn.Module):
         return hidden_state
 
 
-class WordsLstm(nn.Module):
+class WordsLstmB(nn.Module):
     def __init__(self, input_dim, hidden_state_dim, is_forward=True):
-        super(WordsLstm, self).__init__()
+        super(WordsLstmB, self).__init__()
         self.is_forward = is_forward
 
         self.input_dim = input_dim
@@ -138,17 +138,17 @@ class WordsLstm(nn.Module):
         return torch.stack(hidden_states)
 
 
-class Tagger(nn.Module):
+class TaggerB(nn.Module):
     def __init__(self, tags):
-        super(Tagger, self).__init__()
+        super(TaggerB, self).__init__()
 
         self.tags = tags
 
-        self.chars_lstm = CharsLstm(CHARS_EMBEDDING_DIM, CHARS_HIDDEN_DIM, len(utils.CHARS))
-        self.forward_lstm_1 = WordsLstm(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=True)
-        self.backward_lstm_1 = WordsLstm(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
-        self.forward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=True)
-        self.backward_lstm_2 = WordsLstm(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=False)
+        self.chars_lstm = CharsLstmB(CHARS_EMBEDDING_DIM, CHARS_HIDDEN_DIM, len(utils.CHARS))
+        self.forward_lstm_1 = WordsLstmB(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=True)
+        self.backward_lstm_1 = WordsLstmB(CHARS_HIDDEN_DIM, WORDS_HIDDEN_DIM_1, is_forward=False)
+        self.forward_lstm_2 = WordsLstmB(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=True)
+        self.backward_lstm_2 = WordsLstmB(2 * WORDS_HIDDEN_DIM_1, WORDS_HIDDEN_DIM_2, is_forward=False)
         # self.linear_1 = nn.Linear(2 * WORDS_HIDDEN_DIM_2, HIDDEN_LAYER_DIM)
         # self.tanh = nn.Tanh()
         self.linear = nn.Linear(2 * WORDS_HIDDEN_DIM_2, len(self.tags))
@@ -172,7 +172,7 @@ class Tagger(nn.Module):
 
 
 def train(train_dataloader, tags, dev_dataloader, ner_or_pos):
-    model = Tagger(tags)
+    model = TaggerB(tags)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 

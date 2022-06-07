@@ -57,9 +57,13 @@ class OptionCDataset(Dataset):
                 sentence_words.append((prefix_index, word_index, suffix_index))
                 sentence_tags.append(tag_index)
             else:
-                word = raw_data[0][i]
+                word = raw_data[0][i].lower()
+                prefix = utils.get_prefix(word)
+                suffix = utils.get_suffix(word)
+                prefix_index = self.prefixes[prefix] if prefix in self.prefixes else self.corpus[utils.UNKNOWN]
+                suffix_index = self.suffixes[suffix] if suffix in self.suffixes else self.corpus[utils.UNKNOWN]
                 word_index = self.corpus[word] if word in self.corpus else self.corpus[utils.UNKNOWN]
-                sentence_words.append(word_index)
+                sentence_words.append((prefix_index, word_index, suffix_index))
         return sentences
 
     def sentence_to_tensor(self, sentence_words, sentence_tags):
@@ -75,10 +79,10 @@ class OptionCDataset(Dataset):
         return sentence
 
 
-class Lstm(nn.Module):
+class LstmC(nn.Module):
     def __init__(self, input_dim, hidden_state_dim, is_forward=True,
                  is_embedding_layer=True, embeddings_matrix=None, num_of_prefixes=None, num_of_suffixes=None):
-        super(Lstm, self).__init__()
+        super(LstmC, self).__init__()
 
         self.is_forward = is_forward
         self.is_embedding_layer = is_embedding_layer
@@ -123,21 +127,21 @@ class Lstm(nn.Module):
         return torch.stack(hidden_states)
 
 
-class Tagger(nn.Module):
+class TaggerC(nn.Module):
     def __init__(self, tags, embeddings_matrix, num_of_prefixes, num_of_suffixes):
-        super(Tagger, self).__init__()
+        super(TaggerC, self).__init__()
 
         self.tags = tags
 
-        self.forward_lstm_1 = Lstm(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, is_embedding_layer=True,
-                                   embeddings_matrix=embeddings_matrix, num_of_prefixes=num_of_prefixes,
-                                   num_of_suffixes=num_of_suffixes)
-        self.backward_lstm_1 = Lstm(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, is_forward=False, is_embedding_layer=True,
+        self.forward_lstm_1 = LstmC(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, is_embedding_layer=True,
                                     embeddings_matrix=embeddings_matrix, num_of_prefixes=num_of_prefixes,
                                     num_of_suffixes=num_of_suffixes)
-        self.forward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, is_embedding_layer=False)
-        self.backward_lstm_2 = Lstm(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, is_forward=False,
-                                    is_embedding_layer=False)
+        self.backward_lstm_1 = LstmC(EMBEDDING_DIM, HIDDEN_STATE_DIM_1, is_forward=False, is_embedding_layer=True,
+                                     embeddings_matrix=embeddings_matrix, num_of_prefixes=num_of_prefixes,
+                                     num_of_suffixes=num_of_suffixes)
+        self.forward_lstm_2 = LstmC(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, is_embedding_layer=False)
+        self.backward_lstm_2 = LstmC(2 * HIDDEN_STATE_DIM_1, HIDDEN_STATE_DIM_2, is_forward=False,
+                                     is_embedding_layer=False)
         self.linear = nn.Linear(2 * HIDDEN_STATE_DIM_2, len(self.tags))
 
     def forward(self, x):
@@ -154,7 +158,7 @@ class Tagger(nn.Module):
 
 
 def train(train_dataloader, tags, embedding_matrix, num_of_prefixes, num_of_suffixes, dev_dataloader, ner_or_pos):
-    model = Tagger(tags, embedding_matrix, num_of_prefixes, num_of_suffixes)
+    model = TaggerC(tags, embedding_matrix, num_of_prefixes, num_of_suffixes)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
@@ -218,12 +222,12 @@ def train_option_c(train_file, model_file, ner_or_pos, dev_file, vocab_file, emb
     torch.save(model, model_file)
 
 
-def predict_model_c(model_file, input_file, output_file, corpus_path, ner_or_pos):
+def predict_model_c(model_file, input_file, output_file, vocab_file, ner_or_pos):
     # delimiter = ' ' if ner_or_pos == POS else '\t'
     tags = utils.POS_TAGS if ner_or_pos == POS else utils.NER_TAGS
-    corpus = utils.create_corpus(corpus_path)
+    corpus, prefixes, suffixes = utils.create_corpus_with_subwords(vocab_file)
     model = torch.load(model_file)
-    test_data = OptionCDataset(input_file, tags, corpus=corpus, is_train=False)
+    test_data = OptionCDataset(input_file, tags, corpus=corpus, prefixes=prefixes, suffixes=suffixes, is_train=False)
     test_dataloader = DataLoader(test_data, batch_size=None, shuffle=False)
     predictions = []
     for x in test_dataloader:
@@ -232,24 +236,26 @@ def predict_model_c(model_file, input_file, output_file, corpus_path, ner_or_pos
         for p in sequence_predictions:
             predictions.append(tags[p.item()])
         predictions.append('')
-    words = pd.read_csv(input_file, header=None, skip_blank_lines=False, delimiter=' ')
+    words = pd.read_csv(input_file, header=None, skip_blank_lines=False, quoting=3, delimiter=' ')
     with open(output_file, 'w') as writer:
         for w, p in zip(words[0], predictions):
             if type(w) != str:
                 writer.write('\n')
+                continue
             writer.write(f'{w} {p}\n')
 
 
 def main():
-    corpus, prefixes, suffixes = utils.create_corpus_with_subwords(f'{utils.EMBEDDING_PATH}/vocab.txt')
-    embedding_matrix = utils.create_embedding_matrix(f'{utils.EMBEDDING_PATH}/wordVectors.txt')
-    train_dataset = OptionCDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS,
-                                   is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
-    train_dataloader = DataLoader(train_dataset, batch_size=None, shuffle=False)
-    dev_dataloader = OptionCDataset(utils.POS_DEV_PATH, utils.POS_TAGS,
-                                    is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
-    dev_dataloader = DataLoader(dev_dataloader, batch_size=None, shuffle=False)
-    train(train_dataloader, utils.POS_TAGS, embedding_matrix, len(prefixes), len(suffixes), dev_dataloader=dev_dataloader)
+    predict_model_c('../models/models-20220606T145201Z-001/models/model_c_pos.zip', '../data/pos/test', 'out', '../data/pos/train', 'POS')
+    # corpus, prefixes, suffixes = utils.create_corpus_with_subwords(f'{utils.EMBEDDING_PATH}/vocab.txt')
+    # embedding_matrix = utils.create_embedding_matrix(f'{utils.EMBEDDING_PATH}/wordVectors.txt')
+    # train_dataset = OptionCDataset(utils.POS_DEBUG_PATH, utils.POS_TAGS,
+    #                                is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
+    # train_dataloader = DataLoader(train_dataset, batch_size=None, shuffle=False)
+    # dev_dataloader = OptionCDataset(utils.POS_DEV_PATH, utils.POS_TAGS,
+    #                                 is_train=True, corpus=corpus, prefixes=prefixes, suffixes=suffixes)
+    # dev_dataloader = DataLoader(dev_dataloader, batch_size=None, shuffle=False)
+    # train(train_dataloader, utils.POS_TAGS, embedding_matrix, len(prefixes), len(suffixes), dev_dataloader=dev_dataloader)
 
 
 if __name__ == '__main__':

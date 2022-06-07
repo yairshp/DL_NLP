@@ -1,8 +1,8 @@
 import argparse
-from option_a import predict_model_a
-from option_b import predict_model_b
-from option_c import predict_model_c
-from option_d import predict_model_d
+from option_a import predict_model_a, TaggerA, LstmA
+from option_b import predict_model_b, TaggerB, CharsLstmB, WordsLstmB
+from option_c import predict_model_c, TaggerC, LstmC
+from option_d import predict_model_d, TaggerD, CharsLstmD, WordsLstmD
 
 
 def parse_args():

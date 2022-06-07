@@ -1,5 +1,5 @@
 import random
-
+from datetime import datetime
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,7 +11,7 @@ VOCAB = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd']
 WEIGHTS_DIM = 20
 LEARNING_RATE = 0.001
 HIDDEN_LAYER_DIM = 500
-EPOCHS = 5
+EPOCHS = 10
 
 
 class SequenceDataset(Dataset):
@@ -92,28 +92,6 @@ def add_label(sequences, is_pos):
     return results
 
 
-# def get_data(train_data_size, test_data_size):
-#     positive_train_sequences = generate_sequences(True, train_data_size)
-#     positive_train_sequences_labeled = add_label(positive_train_sequences, True)
-#     positive_train_data = multiple_sequences_to_tensor(positive_train_sequences_labeled)
-#     negative_train_sequences = generate_sequences(False, train_data_size)
-#     negative_train_sequences_labeled = add_label(negative_train_sequences, False)
-#     negative_train_data = multiple_sequences_to_tensor(negative_train_sequences_labeled)
-#
-#     train_data = positive_train_data + negative_train_data
-#     random.shuffle(train_data)
-#
-#     positive_test_sequences = generate_sequences(True, test_data_size)
-#     positive_test_sequences_labeled = add_label(positive_test_sequences, True)
-#     positive_test_data = multiple_sequences_to_tensor(positive_test_sequences_labeled)
-#     negative_test_sequences = generate_sequences(False, test_data_size)
-#     negative_test_sequences_labeled = add_label(negative_test_sequences, False)
-#     negative_test_data = multiple_sequences_to_tensor(negative_test_sequences_labeled)
-#
-#     test_data = positive_test_data + negative_test_data
-#
-#     return train_data, test_data
-
 def get_raw_data(input_file_name):
     with open(input_file_name, 'r') as input_file:
         data = input_file.readlines()
@@ -123,12 +101,12 @@ def get_raw_data(input_file_name):
 
 def prepare_data():
     # train data
-    # raw_positive_data = get_raw_data('../data/pos_examples')
-    # raw_negative_data = get_raw_data('../data/neg_examples')
-    # raw_positive_data = get_raw_data('../data/section_2/palindrom_pos_train')
-    # raw_negative_data = get_raw_data('../data/section_2/not_palindroms_train')
-    raw_positive_data = get_raw_data('../data/section_2/same_size_train')
-    raw_negative_data = get_raw_data('../data/section_2/different_size_train')
+    # raw_positive_data = get_raw_data('../data/section_1/pos_examples')
+    # raw_negative_data = get_raw_data('../data/section_1/neg_examples')
+    raw_positive_data = get_raw_data('../data/section_2/with_123_train')
+    raw_negative_data = get_raw_data('../data/section_2/without_123_train')
+    # raw_positive_data = get_raw_data('../data/section_2/same_size_train')
+    # raw_negative_data = get_raw_data('../data/section_2/different_size_train')
 
     labeled_positive_data = add_label(raw_positive_data, is_pos=True)
     labeled_negative_data = add_label(raw_negative_data, is_pos=False)
@@ -140,12 +118,12 @@ def prepare_data():
     random.shuffle(train_data)
 
     # dev data
-    # raw_positive_data = get_raw_data('../data/pos_dev')
-    # raw_negative_data = get_raw_data('../data/neg_dev')
+    # raw_positive_data = get_raw_data('../data/section_1/pos_dev')
+    # raw_negative_data = get_raw_data('../data/section_1/neg_dev')
     # raw_positive_data = get_raw_data('../data/section_2/palindrom_pos_test')
     # raw_negative_data = get_raw_data('../data/section_2/not_palindroms_test')
-    raw_positive_data = get_raw_data('../data/section_2/same_size_test')
-    raw_negative_data = get_raw_data('../data/section_2/different_size_test')
+    raw_positive_data = get_raw_data('../data/section_2/with_123_test')
+    raw_negative_data = get_raw_data('../data/section_2/without_123_test')
 
     labeled_positive_data = add_label(raw_positive_data, is_pos=True)
     labeled_negative_data = add_label(raw_negative_data, is_pos=False)
@@ -166,6 +144,7 @@ def train(train_data, test_data):
     train_dataloader = DataLoader(dataset=train_data, batch_size=None)
     test_dataloader = DataLoader(dataset=test_data, batch_size=None)
 
+    now = datetime.now()
     for epoch in range(EPOCHS):
         epoch_loss = 0
         for x, y in train_dataloader:
@@ -177,7 +156,9 @@ def train(train_data, test_data):
 
             epoch_loss += loss
         accuracy = validate(test_dataloader, model)
-        print(f'epoch {epoch + 1}: {epoch_loss / len(train_data)}, {accuracy}')
+        delta = datetime.now()
+        print(f'epoch {epoch + 1}: {epoch_loss / len(train_data)}, {accuracy}, time - {delta - now}')
+        now = datetime.now()
 
     return model
 
