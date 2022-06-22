@@ -10,7 +10,7 @@ LEARNING_RATE = 0.001
 BI_LSTM_HIDDEN_DIM = 300
 NUM_OF_CLASSES = 3
 NUM_OF_BI_LSTM_LAYERS = 1
-EPOCHS = 3
+EPOCHS = 10
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -34,7 +34,7 @@ def get_data_and_embeddings():
     test_data = differentiate_input(test_data)
 
     print('building vocab...')
-    x.build_vocab(train_data, min_freq=1, vectors='glove.6B.300d', unk_init=generate_random_embedding)
+    x.build_vocab(train_data, min_freq=1, vectors='glove.840B.300d', unk_init=generate_random_embedding)
     y.build_vocab(train_data)
 
     embedding_matrix = x.vocab.vectors
