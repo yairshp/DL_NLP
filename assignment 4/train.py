@@ -4,7 +4,7 @@ import utils
 from bi_lstm_with_inner_attention import BiLstmWithIntraAttention
 
 
-def train(train_data_iter, dev_data_iter, embedding_matrix):
+def train(train_data_iter, test_data_iter, embedding_matrix):
     print('begin training...')
     model = BiLstmWithIntraAttention(utils.BI_LSTM_HIDDEN_DIM,
                                      utils.DROPOUT_VALUE,
@@ -14,6 +14,7 @@ def train(train_data_iter, dev_data_iter, embedding_matrix):
                                      utils.NUM_OF_CLASSES).to(utils.device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=utils.LEARNING_RATE)
+    # optimizer = torch.optim.RMSprop(model.parameters(), lr=utils.LEARNING_RATE)
 
     for epoch in range(utils.EPOCHS):
         model.train()
@@ -36,32 +37,36 @@ def train(train_data_iter, dev_data_iter, embedding_matrix):
             epoch_loss += loss
             counter += 1
 
-        accuracy = validate(model, dev_data_iter)
-        print(f'epoch {epoch + 1}/{utils.EPOCHS}: loss - {epoch_loss / counter}, accuracy - {accuracy}')
+        test_accuracy, test_loss = validate(model, criterion, test_data_iter)
+        train_accuracy, train_loss = validate(model, criterion, train_data_iter)
+        print(f'epoch {epoch + 1}/{utils.EPOCHS}:\n\ttest_loss - {test_loss}, test_accuracy - {test_accuracy}\n'
+              f'\ttrain_loss - {train_loss}, train_accuracy - {train_accuracy}')
 
 
-def validate(model, dev_data_iter):
+def validate(model, criterion, data_iter):
     model.eval()
 
     correct = 0
     samples = 0
 
     with torch.no_grad():
-        for batch_num, sequence_batch in enumerate(dev_data_iter):
+        loss = 0
+        for batch_num, sequence_batch in enumerate(data_iter):
             premise_sentences, premise_lengths = sequence_batch.premise
             hypothesis_sentences, hypothesis_length = sequence_batch.hypothesis
             outputs = model(premise_sentences.to(utils.device), hypothesis_sentences.to(utils.device),
                             premise_lengths, hypothesis_length)
+            loss += criterion(outputs.to(utils.device), sequence_batch.label.to(utils.device) - 1)
             _, predictions = outputs.max(1)
             correct += float((predictions == sequence_batch.label - 1).sum())
             samples += float(predictions.size(0))
 
-    return correct / samples
+    return correct / samples, loss
 
 
 def main():
     train_data_iter, dev_data_iter, test_data_iter, embedding_matrix = utils.get_data_and_embeddings()
-    train(train_data_iter, dev_data_iter, embedding_matrix)
+    train(train_data_iter, test_data_iter, embedding_matrix)
 
 
 if __name__ == '__main__':

@@ -21,15 +21,19 @@ def generate_random_embedding(w):
 
 
 def get_data_and_embeddings():
+    print('begin...')
     x = torchtext.data.Field(init_token='</begin>', lower=True, batch_first=True, include_lengths=True)
     y = torchtext.data.Field(sequential=False)
 
+    print('getting dataset...')
     train_data, dev_data, test_data = torchtext.datasets.SNLI.splits(text_field=x, label_field=y)
 
+    print('differentiating inputs...')
     train_data = differentiate_input(train_data)
     dev_data = differentiate_input(dev_data)
     test_data = differentiate_input(test_data)
 
+    print('building vocab...')
     x.build_vocab(train_data, min_freq=1, vectors='glove.6B.300d', unk_init=generate_random_embedding)
     y.build_vocab(train_data)
 
